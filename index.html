@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>¡Escapa de la Bestia!</title>
+    <title>¡Escapa de la Bestia V2!</title>
     <style>
         body {
             display: flex;
@@ -12,116 +12,166 @@
             background-color: #1a1a1a;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin-top: 40px;
+            margin-top: 20px;
         }
         #gameCanvas {
             background-color: #333333;
             border: 4px solid #555;
             box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
-            margin-top: 20px;
+            margin-top: 10px;
         }
         h1 { margin: 0; color: #ff4d4d; }
-        p { font-size: 1.2rem; }
-        .stats { color: #4facf7; font-weight: bold; }
-        .warning { color: #ffeb3b; font-weight: bold; font-size: 0.9rem; }
+        p { font-size: 1.2rem; margin: 10px 0; }
+        .stats { color: #ffd700; font-weight: bold; }
+        .warning { color: #ff4d4d; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <h1>¡Huye de la Bestia! 👹</h1>
-    <p>Tiempo vivo: <span id="time" class="stats">0</span>s | Velocidad de la bestia: <span id="speedDisplay" class="warning">3.5</span></p>
+    <p>
+        Puntos: <span id="scoreDisplay" class="stats">0</span> | 
+        Récord: <span id="highScoreDisplay" class="stats">0</span> | 
+        Velocidad Bestia: <span id="speedDisplay" class="warning">3.5</span>
+    </p>
     
-    <canvas id="gameCanvas" width="500" height="500"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const timeEl = document.getElementById('time');
+        const scoreEl = document.getElementById('scoreDisplay');
+        const highScoreEl = document.getElementById('highScoreDisplay');
         const speedEl = document.getElementById('speedDisplay');
 
         // Entidades
         let player = { x: 50, y: 50, size: 20, speed: 5, color: '#4facf7' };
-        let beast = { x: 400, y: 400, size: 25, speed: 3.5, color: '#ff4d4d' };
+        let beast = { x: 700, y: 500, size: 25, speed: 3.5, color: '#ff4d4d' };
+        let coin = { x: 0, y: 0, size: 15, color: '#ffd700' };
 
-        // Obstáculos (x, y, ancho, alto)
+        // Puntuación
+        let score = 0;
+        // Leer el récord de la memoria del navegador. Si no hay, es 0.
+        let highScore = localStorage.getItem('bestiaHighScore') || 0;
+        highScoreEl.innerText = highScore;
+
+        // Nuevos obstáculos para el mapa grande
         const obstacles = [
-            { x: 150, y: 100, w: 200, h: 30 },
-            { x: 150, y: 350, w: 200, h: 30 },
-            { x: 300, y: 150, w: 30, h: 150 }
+            { x: 150, y: 150, w: 500, h: 30 }, // Muro superior
+            { x: 150, y: 420, w: 500, h: 30 }, // Muro inferior
+            { x: 385, y: 150, w: 30, h: 300 }  // Muro central vertical
         ];
 
         let keys = {};
-        let startTime = Date.now();
         let gameRunning = true;
 
         window.addEventListener('keydown', e => keys[e.key] = true);
         window.addEventListener('keyup', e => keys[e.key] = false);
 
-        // Función para verificar si hay choque con muros
-        function isColliding(newX, newY) {
-            // Evitar salir del mapa
-            if (newX < 0 || newX + player.size > canvas.width || 
-                newY < 0 || newY + player.size > canvas.height) {
+        // Función de colisión mejorada (sirve para jugador, bestia y monedas)
+        function isColliding(newX, newY, size) {
+            // Chocar con los bordes del mapa
+            if (newX < 0 || newX + size > canvas.width || 
+                newY < 0 || newY + size > canvas.height) {
                 return true;
             }
-            // Evitar chocar con obstáculos
+            // Chocar con obstáculos
             for (let obs of obstacles) {
-                if (newX < obs.x + obs.w && newX + player.size > obs.x &&
-                    newY < obs.y + obs.h && newY + player.size > obs.y) {
+                if (newX < obs.x + obs.w && newX + size > obs.x &&
+                    newY < obs.y + obs.h && newY + size > obs.y) {
                     return true;
                 }
             }
             return false;
         }
 
+        // Función para aparecer la moneda en un lugar libre
+        function spawnCoin() {
+            let validPosition = false;
+            while (!validPosition) {
+                coin.x = Math.random() * (canvas.width - coin.size);
+                coin.y = Math.random() * (canvas.height - coin.size);
+                // Si la posición de la moneda no choca con ningún muro, es válida
+                if (!isColliding(coin.x, coin.y, coin.size)) {
+                    validPosition = true;
+                }
+            }
+        }
+        spawnCoin(); // Aparecer la primera moneda al iniciar
+
         function update() {
             if (!gameRunning) return;
 
-            // Intentar mover en X
+            // --- MOVIMIENTO DEL JUGADOR ---
             let nextX = player.x;
             if (keys['ArrowLeft']) nextX -= player.speed;
             if (keys['ArrowRight']) nextX += player.speed;
-            if (!isColliding(nextX, player.y)) player.x = nextX;
+            if (!isColliding(nextX, player.y, player.size)) player.x = nextX;
 
-            // Intentar mover en Y
             let nextY = player.y;
             if (keys['ArrowUp']) nextY -= player.speed;
             if (keys['ArrowDown']) nextY += player.speed;
-            if (!isColliding(player.x, nextY)) player.y = nextY;
+            if (!isColliding(player.x, nextY, player.size)) player.y = nextY;
 
-            // Aumentar la velocidad de la bestia con el tiempo (Dificultad progresiva)
-            beast.speed += 0.002; 
+            // --- RECOLECTAR MONEDA ---
+            if (player.x < coin.x + coin.size && player.x + player.size > coin.x &&
+                player.y < coin.y + coin.size && player.y + player.size > coin.y) {
+                score += 10;
+                scoreEl.innerText = score;
+                spawnCoin(); // Aparecer nueva moneda
+            }
+
+            // --- DIFICULTAD ---
+            beast.speed += 0.001; 
             speedEl.innerText = beast.speed.toFixed(1);
 
-            // Inteligencia de la Bestia (atraviesa paredes para dar más miedo)
+            // --- INTELIGENCIA DE LA BESTIA ---
             let dx = player.x - beast.x;
             let dy = player.y - beast.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance > 0) {
-                beast.x += (dx / distance) * beast.speed;
-                beast.y += (dy / distance) * beast.speed;
+                let moveX = (dx / distance) * beast.speed;
+                let moveY = (dy / distance) * beast.speed;
+
+                // Intentar moverse en X. Si no choca, se mueve.
+                if (!isColliding(beast.x + moveX, beast.y, beast.size)) {
+                    beast.x += moveX;
+                }
+                // Intentar moverse en Y por separado. Esto permite que se "deslice".
+                if (!isColliding(beast.x, beast.y + moveY, beast.size)) {
+                    beast.y += moveY;
+                }
             }
 
-            // Detección de colisiones (Jugador vs Bestia)
+            // --- GAME OVER ---
             if (player.x < beast.x + beast.size && player.x + player.size > beast.x &&
                 player.y < beast.y + beast.size && player.y + player.size > beast.y) {
                 gameRunning = false;
-                alert('¡TE ATRAPÓ! Sobreviviste ' + timeEl.innerText + ' segundos.');
+                
+                // Guardar récord si superaste el anterior
+                if (score > highScore) {
+                    localStorage.setItem('bestiaHighScore', score);
+                    alert(`¡NUEVO RÉCORD! Lograste ${score} puntos. 🎉`);
+                } else {
+                    alert(`¡Te atrapó! Puntos: ${score}. Récord actual: ${highScore} 👹`);
+                }
                 location.reload(); 
             }
-
-            timeEl.innerText = Math.floor((Date.now() - startTime) / 1000);
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Dibujar obstáculos
+            // Dibujar Muros
             ctx.fillStyle = '#666666';
             for (let obs of obstacles) {
                 ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
             }
+
+            // Dibujar Moneda
+            ctx.fillStyle = coin.color;
+            ctx.fillRect(coin.x, coin.y, coin.size, coin.size);
 
             // Dibujar Jugador
             ctx.fillStyle = player.color;
@@ -142,3 +192,5 @@
     </script>
 </body>
 </html>
+</html>
+
