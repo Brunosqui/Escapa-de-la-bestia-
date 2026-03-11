@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Escapa de la Bestia!</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin-top: 40px;
+        }
+        #gameCanvas {
+            background-color: #333333;
+            border: 4px solid #555;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+            margin-top: 20px;
+        }
+        h1 { margin: 0; color: #ff4d4d; }
+        p { font-size: 1.2rem; }
+        .stats { color: #4facf7; font-weight: bold; }
+        .warning { color: #ffeb3b; font-weight: bold; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <h1>¡Huye de la Bestia! 👹</h1>
+    <p>Tiempo vivo: <span id="time" class="stats">0</span>s | Velocidad de la bestia: <span id="speedDisplay" class="warning">3.5</span></p>
+    
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const timeEl = document.getElementById('time');
+        const speedEl = document.getElementById('speedDisplay');
+
+        // Entidades
+        let player = { x: 50, y: 50, size: 20, speed: 5, color: '#4facf7' };
+        let beast = { x: 400, y: 400, size: 25, speed: 3.5, color: '#ff4d4d' };
+
+        // Obstáculos (x, y, ancho, alto)
+        const obstacles = [
+            { x: 150, y: 100, w: 200, h: 30 },
+            { x: 150, y: 350, w: 200, h: 30 },
+            { x: 300, y: 150, w: 30, h: 150 }
+        ];
+
+        let keys = {};
+        let startTime = Date.now();
+        let gameRunning = true;
+
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Función para verificar si hay choque con muros
+        function isColliding(newX, newY) {
+            // Evitar salir del mapa
+            if (newX < 0 || newX + player.size > canvas.width || 
+                newY < 0 || newY + player.size > canvas.height) {
+                return true;
+            }
+            // Evitar chocar con obstáculos
+            for (let obs of obstacles) {
+                if (newX < obs.x + obs.w && newX + player.size > obs.x &&
+                    newY < obs.y + obs.h && newY + player.size > obs.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            // Intentar mover en X
+            let nextX = player.x;
+            if (keys['ArrowLeft']) nextX -= player.speed;
+            if (keys['ArrowRight']) nextX += player.speed;
+            if (!isColliding(nextX, player.y)) player.x = nextX;
+
+            // Intentar mover en Y
+            let nextY = player.y;
+            if (keys['ArrowUp']) nextY -= player.speed;
+            if (keys['ArrowDown']) nextY += player.speed;
+            if (!isColliding(player.x, nextY)) player.y = nextY;
+
+            // Aumentar la velocidad de la bestia con el tiempo (Dificultad progresiva)
+            beast.speed += 0.002; 
+            speedEl.innerText = beast.speed.toFixed(1);
+
+            // Inteligencia de la Bestia (atraviesa paredes para dar más miedo)
+            let dx = player.x - beast.x;
+            let dy = player.y - beast.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 0) {
+                beast.x += (dx / distance) * beast.speed;
+                beast.y += (dy / distance) * beast.speed;
+            }
+
+            // Detección de colisiones (Jugador vs Bestia)
+            if (player.x < beast.x + beast.size && player.x + player.size > beast.x &&
+                player.y < beast.y + beast.size && player.y + player.size > beast.y) {
+                gameRunning = false;
+                alert('¡TE ATRAPÓ! Sobreviviste ' + timeEl.innerText + ' segundos.');
+                location.reload(); 
+            }
+
+            timeEl.innerText = Math.floor((Date.now() - startTime) / 1000);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dibujar obstáculos
+            ctx.fillStyle = '#666666';
+            for (let obs of obstacles) {
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            }
+
+            // Dibujar Jugador
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+
+            // Dibujar Bestia
+            ctx.fillStyle = beast.color;
+            ctx.fillRect(beast.x, beast.y, beast.size, beast.size);
+        }
+
+        function loop() {
+            update();
+            draw();
+            if (gameRunning) requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
