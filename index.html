@@ -3,235 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>¡Escapa de la Bestia V6 - Sigilo Real!</title>
+    <title>¡Escapa de la Bestia V7 - Mundo Gigante!</title>
     <style>
         body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #121212;
-            color: #ffffff;
+            display: flex; flex-direction: column; align-items: center;
+            background-color: #0a0a0a; color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding-top: 10px;
+            margin: 0; padding-top: 10px; overflow: hidden;
         }
         #gameContainer { position: relative; margin-top: 10px; }
         #gameCanvas {
-            background-color: #2b2b2b;
-            border: 4px solid #444;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-            display: block;
+            background-color: #1a1a1a; border: 4px solid #333;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.9); display: block;
         }
+        
+        /* UI y Pantallas */
         .screen-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
+            background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
             justify-content: center; align-items: center; text-align: center; z-index: 10;
         }
         #gameOverScreen { display: none; }
-        .screen-overlay h2 { color: #ff4d4d; font-size: 3.5rem; margin: 0 0 10px 0; text-shadow: 2px 2px 10px rgba(255, 0, 0, 0.5); }
-        .screen-overlay p { font-size: 1.2rem; margin: 5px 0; color: #ccc; }
+        .screen-overlay h2 { color: #ff4d4d; font-size: 4rem; margin: 0; text-transform: uppercase; letter-spacing: 5px;}
+        .screen-overlay p { font-size: 1.5rem; margin: 15px 0; color: #ccc; }
+        
         .btn {
             margin-top: 20px; padding: 15px 40px; font-size: 1.3rem; font-weight: bold;
             color: white; background-color: #4facf7; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s;
         }
         .btn:hover { background-color: #2b8cd6; transform: scale(1.05); }
-        .btn-start { background-color: #28a745; }
-        .btn-start:hover { background-color: #218838; }
+        .btn-start { background-color: #b30000; }
+        .btn-start:hover { background-color: #ff1a1a; }
+
+        /* HUD Superior */
         .header-stats {
-            display: flex; gap: 20px; font-size: 1.1rem; background: #222;
-            padding: 10px 20px; border-radius: 10px; border: 1px solid #444; align-items: center;
+            display: flex; gap: 40px; font-size: 1.3rem; background: #111;
+            padding: 10px 30px; border-radius: 10px; border: 1px solid #333; align-items: center;
         }
-        .stats { color: #ffd700; font-weight: bold; }
+        .time-text { color: #fff; font-weight: bold; font-size: 1.5rem; }
+        .phase-text { color: #ff4d4d; font-weight: bold; letter-spacing: 2px; }
+
+        /* Anuncio Central Épico */
+        #announcement {
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            font-size: 3rem; font-weight: bold; color: #ffeb3b;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+            opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 5;
+            text-transform: uppercase; letter-spacing: 4px;
+        }
     </style>
 </head>
 <body>
 
     <div class="header-stats">
-        <span>Puntos: <span id="scoreDisplay" class="stats">0</span></span>
-        <span>Récord: <span id="highScoreDisplay" class="stats">0</span></span>
+        <span>Tiempo Restante: <span id="timeDisplay" class="time-text">2:00</span></span>
+        <span>Estado: <span id="phaseDisplay" class="phase-text">FÁCIL</span></span>
     </div>
     
     <div id="gameContainer">
         <canvas id="gameCanvas" width="1000" height="700"></canvas>
         
+        <div id="announcement"></div>
+
         <div id="startScreen" class="screen-overlay">
-            <h2>Las Ruinas</h2>
-            <p>Escóndete detrás de los muros para cortar su visión.</p>
-            <p><strong>WASD o Flechas:</strong> Moverse</p>
-            <button class="btn btn-start" onclick="startGame()">¡Entrar a las ruinas!</button>
+            <h2>Campaña 1</h2>
+            <p>El Despertar. Sobrevive 2 minutos en las ruinas masivas.</p>
+            <p><strong>Moverse:</strong> WASD o Flechas</p>
+            <button class="btn btn-start" onclick="startGame()">INICIAR PESADILLA</button>
         </div>
 
         <div id="gameOverScreen" class="screen-overlay">
-            <h2>¡CAZADO!</h2>
-            <p>Conseguiste <span id="finalScore" class="stats"></span> puntos.</p>
-            <p id="newRecordMsg" style="color:#ffd700; display:none; font-weight:bold;">¡NUEVO RÉCORD! 🎉</p>
-            <button class="btn" onclick="startGame()">Volver a Intentar</button>
+            <h2 id="endTitle">¡CAZADO!</h2>
+            <p id="endDesc">No lograste sobrevivir el tiempo suficiente.</p>
+            <button class="btn" onclick="location.reload()">Regresar al Menú</button>
         </div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('scoreDisplay');
-        const highScoreEl = document.getElementById('highScoreDisplay');
+        const timeEl = document.getElementById('timeDisplay');
+        const phaseEl = document.getElementById('phaseDisplay');
+        const announcementEl = document.getElementById('announcement');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
-        const finalScoreEl = document.getElementById('finalScore');
-        const newRecordMsg = document.getElementById('newRecordMsg');
+        const endTitle = document.getElementById('endTitle');
+        const endDesc = document.getElementById('endDesc');
 
-        let player, beast, coin, score, gameRunning, keys;
-        let highScore = localStorage.getItem('bestiaHighScore') || 0;
-        highScoreEl.innerText = highScore;
+        // Dimensiones Gigantes del Mundo
+        const WORLD_W = 3000;
+        const WORLD_H = 3000;
 
-        const obstacles = [
-            { x: 100, y: 100, w: 300, h: 25 }, { x: 550, y: 100, w: 350, h: 25 },
-            { x: 100, y: 100, w: 25, h: 200 }, { x: 250, y: 250, w: 200, h: 25 },
-            { x: 425, y: 250, w: 25, h: 150 }, { x: 700, y: 250, w: 200, h: 25 },
-            { x: 875, y: 250, w: 25, h: 250 }, { x: 200, y: 500, w: 80, h: 80 },
-            { x: 500, y: 450, w: 40, h: 150 }, { x: 100, y: 600, w: 400, h: 25 },
-            { x: 650, y: 600, w: 200, h: 25 }
+        // Variables del Motor
+        let player, beast, camera, keys, gameRunning;
+        let obstacles = [];
+        let bushes = [];
+        
+        // Sistema de Campaña y Tiempo
+        let timeLeft = 120; // 2 minutos en segundos
+        let lastTimeUpdate = 0;
+        let currentPhaseIndex = 0;
+
+        // Definición de las Fases para la Campaña 1
+        const phases = [
+            { name: "Fácil", timeTrigger: 120, bSpeed: 1.8, bSize: 20, bColor: '#777777', vRadius: 200 },
+            { name: "Normal", timeTrigger: 60, bSpeed: 2.5, bSize: 30, bColor: '#cc0000', vRadius: 350 }
         ];
 
-        const bushes = [
-            { x: 130, y: 130, w: 100, h: 100 }, { x: 750, y: 300, w: 120, h: 80 },
-            { x: 350, y: 500, w: 100, h: 90 }
-        ];
-
-        function initVars() {
-            // Jugador ligeramente más lento para mejor control (antes 5, ahora 4)
-            player = { x: 50, y: 50, size: 20, speed: 4, color: '#4facf7', isHidden: false };
-            beast = { 
-                x: 900, y: 600, size: 25, speed: 2.3, color: '#ff4d4d', 
-                state: 'wander', visionRadius: 280, wanderAngle: Math.random() * Math.PI * 2 
-            };
-            coin = { x: 0, y: 0, size: 15, color: '#ffd700' };
-            score = 0; scoreEl.innerText = score; keys = {};
-            spawnCoin();
-        }
-
-        // Permitir WASD y Flechas convirtiendo a minúsculas
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
+        // Generador Procedural del Mundo Gigante
+        function generateWorld() {
+            obstacles = [];
+            bushes = [];
+            
+            // Bordes del mundo
+            obstacles.push({x: 0, y: 0, w: WORLD_W, h: 20});
+            obstacles.push({x: 0, y: 0, w: 20, h: WORLD_H});
+            obstacles.push({x: 0, y: WORLD_H - 20, w: WORLD_W, h: 20});
+            obstacles.push({x: WORLD_W - 20, y: 0, w: 20, h: WORLD_H});
+
+            // Ruinas aleatorias (150 muros)
+            for(let i = 0; i < 150; i++) {
+                let isHoriz = Math.random() > 0.5;
+                let w = isHoriz ? (Math.random() * 300 + 100) : 30;
+                let h = isHoriz ? 30 : (Math.random() * 300 + 100);
+                let x = Math.random() * (WORLD_W - w - 40) + 20;
+                let y = Math.random() * (WORLD_H - h - 40) + 20;
+                
+                // No poner muros cerca del spawn del jugador (centro)
+                if (Math.abs(x - WORLD_W/2) > 200 || Math.abs(y - WORLD_H/2) > 200) {
+                    obstacles.push({x, y, w, h});
+                }
+            }
+
+            // Arbustos aleatorios (40 arbustos)
+            for(let i = 0; i < 40; i++) {
+                let w = Math.random() * 100 + 80;
+                let h = Math.random() * 100 + 80;
+                let x = Math.random() * (WORLD_W - w - 40) + 20;
+                let y = Math.random() * (WORLD_H - h - 40) + 20;
+                bushes.push({x, y, w, h});
+            }
+        }
+
+        function initVars() {
+            generateWorld();
+            keys = {};
+            gameRunning = true;
+            timeLeft = 120; // 2 minutos
+            lastTimeUpdate = Date.now();
+            currentPhaseIndex = 0;
+
+            // Jugador aparece en el centro del mundo gigante
+            player = { x: WORLD_W/2, y: WORLD_H/2, size: 20, speed: 4.5, color: '#4facf7', isHidden: false };
+            
+            // La cámara inicia
+            camera = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+
+            // La bestia aparece lejos
+            beast = { 
+                x: 100, y: 100, 
+                size: phases[0].bSize, speed: phases[0].bSpeed, color: phases[0].bColor, 
+                state: 'wander', visionRadius: phases[0].vRadius, wanderAngle: Math.random() * Math.PI * 2 
+            };
+            
+            updateUI();
+        }
+
         function isColliding(newX, newY, size) {
-            if (newX < 0 || newX + size > canvas.width || newY < 0 || newY + size > canvas.height) return true;
             for (let obs of obstacles) {
                 if (newX < obs.x + obs.w && newX + size > obs.x && newY < obs.y + obs.h && newY + size > obs.y) return true;
             }
             return false;
         }
 
-        // Nueva función: Comprueba si hay línea de visión clara sin muros
         function hasLineOfSight(bx, by, px, py) {
-            let dx = px - bx;
-            let dy = py - by;
-            let distance = Math.sqrt(dx*dx + dy*dy);
-            let steps = distance / 5; // Analiza la línea cada 5 píxeles
-
+            let dx = px - bx; let dy = py - by; let distance = Math.sqrt(dx*dx + dy*dy);
+            let steps = distance / 10; 
             for (let i = 1; i < steps; i++) {
-                let cx = bx + (dx * i / steps);
-                let cy = by + (dy * i / steps);
+                let cx = bx + (dx * i / steps); let cy = by + (dy * i / steps);
                 for (let obs of obstacles) {
-                    if (cx >= obs.x && cx <= obs.x + obs.w && cy >= obs.y && cy <= obs.y + obs.h) {
-                        return false; // Un muro bloquea la visión
-                    }
+                    if (cx >= obs.x && cx <= obs.x + obs.w && cy >= obs.y && cy <= obs.y + obs.h) return false;
                 }
             }
-            return true; // Visión libre
+            return true;
         }
 
-        function spawnCoin() {
-            let valid = false;
-            while (!valid) {
-                coin.x = Math.random() * (canvas.width - coin.size);
-                coin.y = Math.random() * (canvas.height - coin.size);
-                if (!isColliding(coin.x, coin.y, coin.size)) valid = true;
+        function showAnnouncement(text) {
+            announcementEl.innerText = text;
+            announcementEl.style.opacity = 1;
+            // Efecto de temblor en la pantalla (muy de juego épico)
+            document.body.style.transform = "translate(5px, 5px)";
+            setTimeout(() => document.body.style.transform = "translate(-5px, -5px)", 50);
+            setTimeout(() => document.body.style.transform = "translate(5px, -5px)", 100);
+            setTimeout(() => document.body.style.transform = "translate(0, 0)", 150);
+            
+            setTimeout(() => { announcementEl.style.opacity = 0; }, 3000);
+        }
+
+        function checkPhaseEvolutions() {
+            // Revisar si toca cambiar de fase según el tiempo
+            if (currentPhaseIndex + 1 < phases.length) {
+                let nextPhase = phases[currentPhaseIndex + 1];
+                if (timeLeft <= nextPhase.timeTrigger) {
+                    currentPhaseIndex++;
+                    let p = phases[currentPhaseIndex];
+                    
+                    // Evolucionar Bestia
+                    beast.speed = p.bSpeed;
+                    beast.size = p.bSize;
+                    beast.color = p.bColor;
+                    beast.visionRadius = p.vRadius;
+                    
+                    // Actualizar UI
+                    phaseEl.innerText = p.name;
+                    if (p.name === "Normal") phaseEl.style.color = "#ff4d4d";
+                    
+                    showAnnouncement(`LA BESTIA EVOLUCIONA\nNIVEL: ${p.name}`);
+                }
             }
+        }
+
+        function updateUI() {
+            let mins = Math.floor(timeLeft / 60);
+            let secs = timeLeft % 60;
+            timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            
+            if (timeLeft <= 10) timeEl.style.color = "#ff0000"; // Últimos 10 segundos en rojo
         }
 
         function update() {
             if (!gameRunning) return;
 
-            // Movimiento fluido con WASD o Flechas
-            let nextX = player.x;
+            // Sistema de Reloj (Baja 1 cada segundo real)
+            let now = Date.now();
+            if (now - lastTimeUpdate >= 1000) {
+                timeLeft--;
+                lastTimeUpdate = now;
+                updateUI();
+                checkPhaseEvolutions();
+
+                // CONDICIÓN DE VICTORIA
+                if (timeLeft <= 0) {
+                    gameRunning = false;
+                    endTitle.innerText = "¡SOBREVIVISTE!";
+                    endTitle.style.color = "#4facf7";
+                    endDesc.innerText = "Has superado la Campaña 1. El amanecer se acerca.";
+                    gameOverScreen.style.display = 'flex';
+                    return;
+                }
+            }
+
+            // Movimiento del Jugador
+            let nextX = player.x; let nextY = player.y;
             if (keys['arrowleft'] || keys['a']) nextX -= player.speed;
             if (keys['arrowright'] || keys['d']) nextX += player.speed;
             if (!isColliding(nextX, player.y, player.size)) player.x = nextX;
-
-            let nextY = player.y;
             if (keys['arrowup'] || keys['w']) nextY -= player.speed;
             if (keys['arrowdown'] || keys['s']) nextY += player.speed;
             if (!isColliding(player.x, nextY, player.size)) player.y = nextY;
 
-            let pCenterX = player.x + player.size / 2;
-            let pCenterY = player.y + player.size / 2;
-            
+            // Actualizar Cámara (Sigue al jugador, pero no se sale de los bordes del mundo)
+            camera.x = player.x + player.size/2 - camera.w/2;
+            camera.y = player.y + player.size/2 - camera.h/2;
+            camera.x = Math.max(0, Math.min(camera.x, WORLD_W - camera.w));
+            camera.y = Math.max(0, Math.min(camera.y, WORLD_H - camera.h));
+
             // Arbustos
             player.isHidden = false;
+            let pCenterX = player.x + player.size/2; let pCenterY = player.y + player.size/2;
             for (let b of bushes) {
                 if (pCenterX > b.x && pCenterX < b.x + b.w && pCenterY > b.y && pCenterY < b.y + b.h) {
                     player.isHidden = true;
                 }
             }
 
-            // Recolección de monedas mejorada (hitbox más grande/imán)
-            let cCenterX = coin.x + coin.size / 2;
-            let cCenterY = coin.y + coin.size / 2;
-            let distToCoin = Math.sqrt(Math.pow(pCenterX - cCenterX, 2) + Math.pow(pCenterY - cCenterY, 2));
-            
-            if (distToCoin < (player.size/2 + coin.size/2 + 10)) { // +10 de radio extra
-                score += 10;
-                scoreEl.innerText = score;
-                spawnCoin();
-                beast.speed += 0.05;
-            }
-
             // Inteligencia de la Bestia
-            let bCenterX = beast.x + beast.size / 2;
-            let bCenterY = beast.y + beast.size / 2;
-            let dX = player.x - beast.x;
-            let dY = player.y - beast.y;
-            let distanceToPlayer = Math.sqrt(dX * dX + dY * dY);
-
-            // Verifica si te puede ver (dentro de radio + no escondido + sin muros en medio)
-            let canSeePlayer = distanceToPlayer < beast.visionRadius && !player.isHidden && hasLineOfSight(bCenterX, bCenterY, pCenterX, pCenterY);
+            let bCenterX = beast.x + beast.size/2; let bCenterY = beast.y + beast.size/2;
+            let dX = player.x - beast.x; let dY = player.y - beast.y;
+            let dist = Math.sqrt(dX*dX + dY*dY);
+            let canSee = dist < beast.visionRadius && !player.isHidden && hasLineOfSight(bCenterX, bCenterY, pCenterX, pCenterY);
 
             if (beast.state === 'wander') {
-                if (canSeePlayer) {
-                    beast.state = 'chase'; // ¡Te vio!
-                } else {
+                if (canSee) beast.state = 'chase';
+                else {
                     let moveX = Math.cos(beast.wanderAngle) * (beast.speed * 0.6);
                     let moveY = Math.sin(beast.wanderAngle) * (beast.speed * 0.6);
                     let hitWall = false;
-                    
                     if (!isColliding(beast.x + moveX, beast.y, beast.size)) beast.x += moveX; else hitWall = true;
                     if (!isColliding(beast.x, beast.y + moveY, beast.size)) beast.y += moveY; else hitWall = true;
-
                     if (hitWall || Math.random() < 0.01) beast.wanderAngle = Math.random() * Math.PI * 2;
                 }
             } else if (beast.state === 'chase') {
-                if (!canSeePlayer && distanceToPlayer > beast.visionRadius * 1.5) {
-                    beast.state = 'wander'; // Te perdió el rastro
-                    beast.wanderAngle = Math.random() * Math.PI * 2;
-                } else if (canSeePlayer) {
-                    let moveX = (dX / distanceToPlayer) * beast.speed;
-                    let moveY = (dY / distanceToPlayer) * beast.speed;
+                if (!canSee && dist > beast.visionRadius * 1.5) {
+                    beast.state = 'wander'; beast.wanderAngle = Math.random() * Math.PI * 2;
+                } else if (canSee) {
+                    let moveX = (dX / dist) * beast.speed; let moveY = (dY / dist) * beast.speed;
                     if (!isColliding(beast.x + moveX, beast.y, beast.size)) beast.x += moveX;
                     if (!isColliding(beast.x, beast.y + moveY, beast.size)) beast.y += moveY;
                 }
             }
 
-            // Game Over
+            // Game Over (Derrota)
             if (player.x < beast.x + beast.size && player.x + player.size > beast.x &&
                 player.y < beast.y + beast.size && player.y + player.size > beast.y) {
                 gameRunning = false;
-                finalScoreEl.innerText = score;
-                if (score > highScore) {
-                    highScore = score;
-                    localStorage.setItem('bestiaHighScore', highScore);
-                    highScoreEl.innerText = highScore;
-                    newRecordMsg.style.display = 'block';
-                } else newRecordMsg.style.display = 'none';
+                endTitle.innerText = "¡CAZADO!";
+                endTitle.style.color = "#ff4d4d";
+                endDesc.innerText = `Sobreviviste hasta la fase: ${phases[currentPhaseIndex].name}.`;
                 gameOverScreen.style.display = 'flex';
             }
         }
@@ -239,35 +320,50 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#1e5e2f'; // Arbustos
-            for (let b of bushes) ctx.fillRect(b.x, b.y, b.w, b.h);
+            // MÚSICA MAESTRO: Renderizado relativo a la cámara
+            // Para dibujar algo, le restamos la posición de la cámara (camera.x, camera.y)
 
-            ctx.fillStyle = '#555555'; // Muros
-            for (let obs of obstacles) ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            // Dibujar Suelo base del mundo visible
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0 - camera.x, 0 - camera.y, WORLD_W, WORLD_H);
 
-            ctx.fillStyle = coin.color; // Moneda
-            ctx.fillRect(coin.x, coin.y, coin.size, coin.size);
+            // Arbustos (Solo dibujamos si están dentro de la cámara para ahorrar rendimiento)
+            ctx.fillStyle = '#104018'; 
+            for (let b of bushes) {
+                if (b.x + b.w > camera.x && b.x < camera.x + camera.w && b.y + b.h > camera.y && b.y < camera.y + camera.h) {
+                    ctx.fillRect(b.x - camera.x, b.y - camera.y, b.w, b.h);
+                }
+            }
 
+            // Muros
+            ctx.fillStyle = '#444444';
+            for (let obs of obstacles) {
+                if (obs.x + obs.w > camera.x && obs.x < camera.x + camera.w && obs.y + obs.h > camera.y && obs.y < camera.y + camera.h) {
+                    ctx.fillRect(obs.x - camera.x, obs.y - camera.y, obs.w, obs.h);
+                }
+            }
+
+            // Jugador
             ctx.globalAlpha = player.isHidden ? 0.3 : 1.0;
             ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.size, player.size);
+            ctx.fillRect(player.x - camera.x, player.y - camera.y, player.size, player.size);
             ctx.globalAlpha = 1.0;
 
-            // Bestia (Más terrorífica sin mostrar el círculo, solo cambia de rojo oscuro a rojo sangre)
-            ctx.fillStyle = beast.state === 'chase' ? '#ff0000' : '#883333';
-            ctx.fillRect(beast.x, beast.y, beast.size, beast.size);
+            // Bestia (Cambia de color según estado)
+            ctx.fillStyle = beast.state === 'chase' ? '#ff0000' : beast.color;
+            ctx.fillRect(beast.x - camera.x, beast.y - camera.y, beast.size, beast.size);
         }
 
         function loop() { update(); draw(); if (gameRunning) requestAnimationFrame(loop); }
         function startGame() {
             startScreen.style.display = 'none'; gameOverScreen.style.display = 'none';
-            initVars(); gameRunning = true; loop();
+            initVars(); loop();
         }
 
-        initVars(); draw();
     </script>
 </body>
 </html>
+
 
 
 
